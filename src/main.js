@@ -14,58 +14,39 @@ app.innerHTML = `
       --background-color: #f9fafb;
       --panel-background: #fff;
       --border-color: #e5e7eb;
-      --shadow-color: rgba(0, 0, 0, 0.05);
+      --shadow-color: rgba(0, 0, 0, 0.1);
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-      overflow: hidden;
+      overflow: hidden; /* Prevents scrolling of the whole page */
     }
     .wrap {
       display: grid;
       grid-template-columns: 360px 1fr;
       height: 100vh;
-      background: var(--background-color);
-      transition: grid-template-columns 0.3s ease-in-out;
-    }
-    .panel {
-      padding: 24px;
-      background: var(--panel-background);
-      box-shadow: 0 10px 15px -3px var(--shadow-color), 0 4px 6px -2px var(--shadow-color);
-      z-index: 10;
-      position: relative;
-      transition: transform 0.3s ease-in-out;
-      display: flex;
-      flex-direction: column;
-    }
-    .wrap.panel-collapsed {
-      grid-template-columns: 0 1fr;
-    }
-    .wrap.panel-collapsed .panel {
-      transform: translateX(-100%);
-      padding: 0;
     }
     #map {
       height: 100%;
     }
-    .panel-toggle-btn {
-      position: absolute;
-      top: 20px;
-      right: -40px;
+    .panel {
       background: var(--panel-background);
-      border: 1px solid var(--border-color);
-      border-left: none;
-      padding: 8px;
-      cursor: pointer;
-      border-top-right-radius: 8px;
-      border-bottom-right-radius: 8px;
-      box-shadow: 2px 0 5px var(--shadow-color);
-      z-index: 11;
+      box-shadow: 0 4px 6px -1px var(--shadow-color), 0 2px 4px -1px rgba(0,0,0,0.06);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      border-right: 1px solid var(--border-color);
+    }
+    .panel-content {
+      overflow-y: auto;
+    }
+    .panel-toggle-btn {
+      display: none; /* Hidden on desktop */
     }
     h1 {
       font-size: 1.5rem;
       margin: 0 0 8px;
       font-weight: 600;
-      color: var(--text-color);
     }
     .muted {
       color: var(--muted-text-color);
@@ -78,15 +59,12 @@ app.innerHTML = `
       border: 1px solid var(--border-color);
       border-radius: 8px;
       font-size: 1rem;
-      margin-bottom: 16px;
       box-sizing: border-box;
+      margin-bottom: 16px;
     }
-    .kv {
-      display: grid;
-      gap: 12px;
-    }
+    .kv { display: grid; gap: 12px; }
     .cell {
-      background: #f9fafb;
+      background: var(--background-color);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 12px;
@@ -96,63 +74,20 @@ app.innerHTML = `
       color: var(--muted-text-color);
       margin-bottom: 4px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
     }
     .value {
-      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+      font-family: 'SFMono-Regular', Consolas, 'Menlo', monospace;
       font-size: 1.1rem;
       font-weight: 500;
     }
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    .controls {
-      display: flex;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-      margin-right: 12px;
-    }
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: 0.4s;
-      border-radius: 34px;
-    }
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: 0.4s;
-      border-radius: 50%;
-    }
-    input:checked + .slider {
-      background-color: var(--primary-color);
-    }
-    input:checked + .slider:before {
-      transform: translateX(20px);
-    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .controls { display: flex; align-items: center; margin-bottom: 24px; }
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-right: 12px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--primary-color); }
+    input:checked + .slider:before { transform: translateX(20px); }
     button.copy {
       margin-top: 24px;
       border: none;
@@ -172,84 +107,80 @@ app.innerHTML = `
       margin-top: auto;
       padding-top: 20px;
     }
+
+    /* Mobile-first styles */
     @media (max-width: 768px) {
       .wrap {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
+        grid-template-columns: 1fr; /* Map takes full width */
       }
       .panel {
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-        box-shadow: none;
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        transform: translateX(-100%);
-        overflow-y: auto;
+        transform: translateY(100%);
+        transition: transform 0.3s ease-in-out;
+        z-index: 100;
+        border-right: none;
+        box-shadow: none;
+        box-sizing: border-box;
       }
-      .wrap.panel-collapsed .panel {
-        transform: translateX(0);
+      .wrap.panel-open .panel {
+        transform: translateY(0);
       }
       .panel-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         position: fixed;
-        top: 10px;
-        left: 10px;
-        right: auto;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
+        bottom: 20px;
+        right: 20px;
+        width: 56px;
+        height: 56px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        cursor: pointer;
+        z-index: 101;
       }
     }
   </style>
   <div class="panel">
-    <button id="togglePanel" class="panel-toggle-btn">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-    </button>
-    <h1>Map to Grid number zone India-IIB</h1>
-    <p class="muted">Click the map to drop a marker or enable <b>Live (center)</b> to update as you pan/zoom.</p>
-    <div class="search"><input id="searchBox" type="text" placeholder="Search for a place..."/></div>
-    <div class="controls">
-      <label class="switch"><input id="liveToggle" type="checkbox"/><span class="slider"></span></label>
-      <span class="muted" style="user-select:none;">Live (center) mode</span>
-    </div>
-    <div class="kv">
-      <div class="cell">
-        <div class="label">Longitude (°E)</div>
-        <div class="value" id="lon">—</div>
+    <div class="panel-content">
+      <h1>Map to Grid number zone India-IIB</h1>
+      <p class="muted">Click the map to drop a marker or enable <b>Live (center)</b> to update as you pan/zoom.</p>
+      <div class="search"><input id="searchBox" type="text" placeholder="Search for a place..."/></div>
+      <div class="controls">
+        <label class="switch"><input id="liveToggle" type="checkbox"/><span class="slider"></span></label>
+        <span class="muted" style="user-select:none;">Live (center) mode</span>
       </div>
-      <div class="cell">
-        <div class="label">Latitude (°N)</div>
-        <div class="value" id="lat">—</div>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="label">Easting / X (m)</div>
-          <div class="value" id="E">—</div>
-        </div>
-        <div class="cell">
-          <div class="label">Northing / Y (m)</div>
-          <div class="value" id="N">—</div>
+      <div class="kv">
+        <div class="cell"><div class="label">Longitude (°E)</div><div class="value" id="lon">—</div></div>
+        <div class="cell"><div class="label">Latitude (°N)</div><div class="value" id="lat">—</div></div>
+        <div class="row">
+          <div class="cell"><div class="label">Easting / X (m)</div><div class="value" id="E">—</div></div>
+          <div class="cell"><div class="label">Northing / Y (m)</div><div class="value" id="N">—</div></div>
         </div>
       </div>
+      <button class="copy" id="copyBtn">Copy Values</button>
+      <footer>© 2025 Md Asif Islam</footer>
     </div>
-    <button class="copy" id="copyBtn">Copy Values</button>
-    <footer>© 2025 Md Asif Islam</footer>
   </div>
   <div id="map"></div>
+  <button id="togglePanel" class="panel-toggle-btn">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+  </button>
 </div>
 `;
 
 function setOutput(lon, lat, E, N) {
-    const lonEl = document.getElementById('lon');
-    const latEl = document.getElementById('lat');
-    const eastingEl = document.getElementById('E');
-    const northingEl = document.getElementById('N');
-
-    if (lonEl) lonEl.textContent = lon.toFixed(5);
-    if (latEl) latEl.textContent = lat.toFixed(5);
-    if (eastingEl) eastingEl.textContent = E.toLocaleString('en-IN');
-    if (northingEl) northingEl.textContent = N.toLocaleString('en-IN');
+    document.getElementById('lon').textContent = lon.toFixed(5);
+    document.getElementById('lat').textContent = lat.toFixed(5);
+    document.getElementById('E').textContent = E.toLocaleString('en-IN');
+    document.getElementById('N').textContent = N.toLocaleString('en-IN');
 }
 
 document.getElementById('copyBtn').addEventListener('click', () => {
@@ -262,7 +193,7 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 });
 
 document.getElementById('togglePanel').addEventListener('click', () => {
-    document.querySelector('.wrap').classList.toggle('panel-collapsed');
+    document.querySelector('.wrap').classList.toggle('panel-open');
 });
 
 (async function init() {
@@ -290,23 +221,25 @@ document.getElementById('togglePanel').addEventListener('click', () => {
     const marker = new google.maps.Marker({ map, draggable: true, visible: false });
 
     function computeAndShow(pos) {
-        const lat = pos.lat(),
-            lon = pos.lng();
+        const lat = pos.lat(), lon = pos.lng();
         const { E, N } = llToIIB(lon, lat);
         setOutput(lon, lat, E, N);
         info.setContent(`Lon: ${lon.toFixed(5)}<br>Lat: ${lat.toFixed(5)}<br><b>E:</b> ${E}<br><b>N:</b> ${N}`);
         info.open({ anchor: marker.getVisible() ? marker : undefined, map });
     }
+
     map.addListener('click', e => {
         marker.setVisible(true);
         marker.setPosition(e.latLng);
         computeAndShow(e.latLng);
     });
     marker.addListener('dragend', () => computeAndShow(marker.getPosition()));
+
     const toggle = document.getElementById('liveToggle');
     map.addListener('idle', () => {
         if (toggle.checked) computeAndShow(map.getCenter());
     });
+
     const input = document.getElementById('searchBox');
     const ac = new google.maps.places.Autocomplete(input, { fields: ['geometry', 'name'] });
     ac.bindTo('bounds', map);
@@ -318,6 +251,12 @@ document.getElementById('togglePanel').addEventListener('click', () => {
         marker.setVisible(true);
         marker.setPosition(loc);
         computeAndShow(loc);
+        
+        // On mobile, close the panel after a place is selected
+        if (window.innerWidth <= 768) {
+            document.querySelector('.wrap').classList.remove('panel-open');
+        }
     });
+    
     computeAndShow(map.getCenter());
 })();
