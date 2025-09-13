@@ -1,79 +1,323 @@
-import { Loader } from '@googlemaps/js-api-loader'; import { llToIIB } from './projection.js';
-const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-document.body.style.margin='0';
-const app=document.getElementById('app');
-app.innerHTML=`<div class="wrap">
-<style>
-.wrap{display:grid;grid-template-columns:360px 1fr;height:100vh;background:#f9fafb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-#map{height:100%;min-height:300px}
-.panel{padding:16px 18px;border-right:1px solid #e5e7eb;background:#fff;box-shadow:0 0 20px rgba(0,0,0,.04);z-index:1}
-h1{font-size:1.2rem;margin:0 0 8px}.muted{color:#6b7280;font-size:.92rem;margin:0 0 12px}
-.kv{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}.cell{border:1px solid #e5e7eb;border-radius:12px;padding:8px 10px;background:#fff}
-.label{font-size:.75rem;color:#6b7280;margin-bottom:4px}.value{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.95rem}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.controls{display:flex;gap:8px;align-items:center;margin:8px 0}
-.switch{position:relative;display:inline-block;width:44px;height:24px}.switch input{display:none}
-.slider{position:absolute;cursor:pointer;inset:0;background:#d1d5db;transition:.2s;border-radius:999px}
-.slider:before{position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;background:#fff;transition:.2s;border-radius:999px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-input:checked + .slider{background:#2563eb}input:checked + .slider:before{transform:translateX(20px)}
-.search{margin:8px 0 12px}.search input{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;font-size:.95rem}
-button.copy{margin-top:8px;border:1px solid #e5e7eb;background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:600}
-footer{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:.8rem;color:#6b7280;background:rgba(255,255,255,.85);padding:4px;z-index:2}
-@media (max-width:900px){.wrap{grid-template-columns:1fr;grid-template-rows:320px 1fr}.panel{border-right:none;border-bottom:1px solid #e5e7eb}}
-</style>
-<div class="panel">
-<h1>Map to Grid number zone India-IIB</h1>
-<p class="muted">Click the map to drop a marker (draggable) or enable <b>Live (center)</b> to update as you pan/zoom.</p>
-<div class="search"><input id="searchBox" type="text" placeholder="Search place or address (Google Places)"/></div>
-<div class="controls"><label class="switch"><input id="liveToggle" type="checkbox"/><span class="slider"></span></label>
-<span class="muted" style="user-select:none;">Live (center) mode</span></div>
-<div class="kv">
-  <div class="cell"><div class="label">Longitude (°E)</div><div class="value" id="lon">—</div></div>
-  <div class="cell"><div class="label">Latitude (°N)</div><div class="value" id="lat">—</div></div>
-  <div class="row">
-    <div class="cell"><div class="label">Easting / X (m)</div><div class="value" id="E">—</div></div>
-    <div class="cell"><div class="label">Northing / Y (m)</div><div class="value" id="N">—</div></div>
-  </div>
-</div>
-<button class="copy" id="copyBtn">Copy values</button>
-<footer>© 2025 Md Asif Islam — Map to Grid number zone India-IIB</footer>
-</div>
-<div id="map"></div></div>`;
+import { Loader } from '@googlemaps/js-api-loader';
+import { llToIIB } from './projection.js';
 
-function setOutput(lon, lat, E, N){
-  document.getElementById('lon').textContent=lon.toFixed(5);
-  document.getElementById('lat').textContent=lat.toFixed(5);
-  document.getElementById('E').textContent=E.toLocaleString('en-IN');
-  document.getElementById('N').textContent=N.toLocaleString('en-IN');
+const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+document.body.style.margin = '0';
+const app = document.getElementById('app');
+app.innerHTML = `
+<div class="wrap">
+  <style>
+    :root {
+      --primary-color: #2563eb;
+      --text-color: #333;
+      --muted-text-color: #6b7280;
+      --background-color: #f9fafb;
+      --panel-background: #fff;
+      --border-color: #e5e7eb;
+      --shadow-color: rgba(0, 0, 0, 0.05);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+      overflow: hidden;
+    }
+    .wrap {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      height: 100vh;
+      background: var(--background-color);
+      transition: grid-template-columns 0.3s ease-in-out;
+    }
+    .panel {
+      padding: 24px;
+      background: var(--panel-background);
+      box-shadow: 0 10px 15px -3px var(--shadow-color), 0 4px 6px -2px var(--shadow-color);
+      z-index: 10;
+      position: relative;
+      transition: transform 0.3s ease-in-out;
+      display: flex;
+      flex-direction: column;
+    }
+    .wrap.panel-collapsed {
+      grid-template-columns: 0 1fr;
+    }
+    .wrap.panel-collapsed .panel {
+      transform: translateX(-100%);
+      padding: 0;
+    }
+    #map {
+      height: 100%;
+    }
+    .panel-toggle-btn {
+      position: absolute;
+      top: 20px;
+      right: -40px;
+      background: var(--panel-background);
+      border: 1px solid var(--border-color);
+      border-left: none;
+      padding: 8px;
+      cursor: pointer;
+      border-top-right-radius: 8px;
+      border-bottom-right-radius: 8px;
+      box-shadow: 2px 0 5px var(--shadow-color);
+      z-index: 11;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 8px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+    .muted {
+      color: var(--muted-text-color);
+      font-size: 0.9rem;
+      margin: 0 0 24px;
+    }
+    .search input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 1rem;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+    .kv {
+      display: grid;
+      gap: 12px;
+    }
+    .cell {
+      background: #f9fafb;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .label {
+      font-size: 0.8rem;
+      color: var(--muted-text-color);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .value {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      margin-right: 12px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--primary-color);
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    button.copy {
+      margin-top: 24px;
+      border: none;
+      background: var(--primary-color);
+      color: white;
+      border-radius: 8px;
+      padding: 12px 18px;
+      cursor: pointer;
+      font-weight: 600;
+      width: 100%;
+      font-size: 1rem;
+    }
+    footer {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted-text-color);
+      margin-top: auto;
+      padding-top: 20px;
+    }
+    @media (max-width: 768px) {
+      .wrap {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      .panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        transform: translateX(-100%);
+        overflow-y: auto;
+      }
+      .wrap.panel-collapsed .panel {
+        transform: translateX(0);
+      }
+      .panel-toggle-btn {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        right: auto;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+      }
+    }
+  </style>
+  <div class="panel">
+    <button id="togglePanel" class="panel-toggle-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <h1>Map to Grid number zone India-IIB</h1>
+    <p class="muted">Click the map to drop a marker or enable <b>Live (center)</b> to update as you pan/zoom.</p>
+    <div class="search"><input id="searchBox" type="text" placeholder="Search for a place..."/></div>
+    <div class="controls">
+      <label class="switch"><input id="liveToggle" type="checkbox"/><span class="slider"></span></label>
+      <span class="muted" style="user-select:none;">Live (center) mode</span>
+    </div>
+    <div class="kv">
+      <div class="cell">
+        <div class="label">Longitude (°E)</div>
+        <div class="value" id="lon">—</div>
+      </div>
+      <div class="cell">
+        <div class="label">Latitude (°N)</div>
+        <div class="value" id="lat">—</div>
+      </div>
+      <div class="row">
+        <div class="cell">
+          <div class="label">Easting / X (m)</div>
+          <div class="value" id="E">—</div>
+        </div>
+        <div class="cell">
+          <div class="label">Northing / Y (m)</div>
+          <div class="value" id="N">—</div>
+        </div>
+      </div>
+    </div>
+    <button class="copy" id="copyBtn">Copy Values</button>
+    <footer>© 2025 Md Asif Islam</footer>
+  </div>
+  <div id="map"></div>
+</div>
+`;
+
+function setOutput(lon, lat, E, N) {
+    const lonEl = document.getElementById('lon');
+    const latEl = document.getElementById('lat');
+    const eastingEl = document.getElementById('E');
+    const northingEl = document.getElementById('N');
+
+    if (lonEl) lonEl.textContent = lon.toFixed(5);
+    if (latEl) latEl.textContent = lat.toFixed(5);
+    if (eastingEl) eastingEl.textContent = E.toLocaleString('en-IN');
+    if (northingEl) northingEl.textContent = N.toLocaleString('en-IN');
 }
-document.getElementById('copyBtn').addEventListener('click',()=>{
-  const t=`Longitude: ${lon.textContent}
-Latitude: ${lat.textContent}
-Easting: ${E.textContent}
-Northing: ${N.textContent}`;
-  navigator.clipboard.writeText(t).then(()=>alert('Copied values to clipboard.'));
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+    const lon = document.getElementById('lon').textContent;
+    const lat = document.getElementById('lat').textContent;
+    const E = document.getElementById('E').textContent;
+    const N = document.getElementById('N').textContent;
+    const t = `Longitude: ${lon}\nLatitude: ${lat}\nEasting: ${E}\nNorthing: ${N}`;
+    navigator.clipboard.writeText(t).then(() => alert('Copied values to clipboard.'));
 });
 
-(async function init(){
-  const loader=new Loader({apiKey:apiKey||'',version:'weekly',libraries:['places']});
-  const google=await loader.load();
-  const map=new google.maps.Map(document.getElementById('map'),{center:{lat:25,lng:90},zoom:6,mapTypeId:'roadmap',mapTypeControl:true,streetViewControl:true,fullscreenControl:true});
-  const info=new google.maps.InfoWindow();
-  const marker=new google.maps.Marker({map,draggable:true,visible:false});
-  function computeAndShow(pos){
-    const lat=pos.lat(), lon=pos.lng(); const {E,N}=llToIIB(lon,lat);
-    setOutput(lon,lat,E,N);
-    info.setContent(`Lon: ${lon.toFixed(5)}<br>Lat: ${lat.toFixed(5)}<br><b>E:</b> ${E}<br><b>N:</b> ${N}`);
-    info.open({anchor:marker.getVisible()?marker:undefined,map});
-  }
-  map.addListener('click',e=>{marker.setVisible(true);marker.setPosition(e.latLng);computeAndShow(e.latLng);});
-  marker.addListener('dragend',()=>computeAndShow(marker.getPosition()));
-  const toggle=document.getElementById('liveToggle');
-  map.addListener('idle',()=>{if(toggle.checked) computeAndShow(map.getCenter());});
-  const input=document.getElementById('searchBox');
-  const ac=new google.maps.places.Autocomplete(input,{fields:['geometry','name']}); ac.bindTo('bounds',map);
-  ac.addListener('place_changed',()=>{const place=ac.getPlace(); if(!place.geometry) return;
-    const loc=place.geometry.location; map.fitBounds(place.geometry.viewport??new google.maps.LatLngBounds(loc,loc));
-    marker.setVisible(true); marker.setPosition(loc); computeAndShow(loc);
-  });
-  computeAndShow(map.getCenter());
+document.getElementById('togglePanel').addEventListener('click', () => {
+    document.querySelector('.wrap').classList.toggle('panel-collapsed');
+});
+
+(async function init() {
+    const loader = new Loader({ apiKey: apiKey || '', version: 'weekly', libraries: ['places'] });
+    const google = await loader.load();
+    const map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 25, lng: 90 },
+        zoom: 6,
+        mapTypeId: 'roadmap',
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+            style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+            position: google.maps.ControlPosition.TOP_RIGHT,
+        },
+        streetViewControl: true,
+        streetViewControlOptions: {
+            position: google.maps.ControlPosition.RIGHT_BOTTOM,
+        },
+        fullscreenControl: true,
+        fullscreenControlOptions: {
+            position: google.maps.ControlPosition.RIGHT_BOTTOM,
+        },
+    });
+    const info = new google.maps.InfoWindow();
+    const marker = new google.maps.Marker({ map, draggable: true, visible: false });
+
+    function computeAndShow(pos) {
+        const lat = pos.lat(),
+            lon = pos.lng();
+        const { E, N } = llToIIB(lon, lat);
+        setOutput(lon, lat, E, N);
+        info.setContent(`Lon: ${lon.toFixed(5)}<br>Lat: ${lat.toFixed(5)}<br><b>E:</b> ${E}<br><b>N:</b> ${N}`);
+        info.open({ anchor: marker.getVisible() ? marker : undefined, map });
+    }
+    map.addListener('click', e => {
+        marker.setVisible(true);
+        marker.setPosition(e.latLng);
+        computeAndShow(e.latLng);
+    });
+    marker.addListener('dragend', () => computeAndShow(marker.getPosition()));
+    const toggle = document.getElementById('liveToggle');
+    map.addListener('idle', () => {
+        if (toggle.checked) computeAndShow(map.getCenter());
+    });
+    const input = document.getElementById('searchBox');
+    const ac = new google.maps.places.Autocomplete(input, { fields: ['geometry', 'name'] });
+    ac.bindTo('bounds', map);
+    ac.addListener('place_changed', () => {
+        const place = ac.getPlace();
+        if (!place.geometry) return;
+        const loc = place.geometry.location;
+        map.fitBounds(place.geometry.viewport ?? new google.maps.LatLngBounds(loc, loc));
+        marker.setVisible(true);
+        marker.setPosition(loc);
+        computeAndShow(loc);
+    });
+    computeAndShow(map.getCenter());
 })();
