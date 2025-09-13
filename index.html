@@ -1,0 +1,154 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Map to Grid number zone India-IIB</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; background: #f9fafb; }
+  .wrap { display: grid; grid-template-columns: 360px 1fr; height: 100%; }
+  #map { height: 100%; }
+  .panel { padding: 16px 18px; border-right: 1px solid #e5e7eb; background: white; box-shadow: 0 0 20px rgba(0,0,0,.04); z-index: 1000; }
+  h1 { font-size: 1.2rem; margin: 0 0 8px; }
+  p.muted { color: #6b7280; font-size: .92rem; }
+  .kv { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
+  .cell { border: 1px solid #e5e7eb; border-radius: 12px; padding: 8px 10px; background: #fff; }
+  .label { font-size: .75rem; color: #6b7280; margin-bottom: 4px; }
+  .value { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .95rem; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button.copy { margin-top: 10px; border: 1px solid #e5e7eb; background: white; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-weight: 600; }
+  .crosshair {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 20px; height: 20px;
+    margin-left: -10px; margin-top: -10px;
+    border: 2px solid rgba(0,0,0,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    background: rgba(255,255,255,0.3);
+  }
+  footer {
+    position: absolute;
+    bottom: 6px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #6b7280;
+    background: rgba(255,255,255,0.85);
+    padding: 4px;
+  }
+  @media (max-width: 900px){
+    .wrap { grid-template-columns: 1fr; grid-template-rows: 300px 1fr; }
+    .panel { border-right: none; border-bottom: 1px solid #e5e7eb; }
+    #map { min-height: 300px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>Map to Grid number zone India-IIB</h1>
+    <p class="muted">Click anywhere or just move the map — coordinates update live and convert to <b>Easting / Northing</b>.</p>
+    <div class="kv">
+      <div class="cell">
+        <div class="label">Longitude (°E)</div>
+        <div class="value" id="lon">—</div>
+      </div>
+      <div class="cell">
+        <div class="label">Latitude (°N)</div>
+        <div class="value" id="lat">—</div>
+      </div>
+      <div class="row">
+        <div class="cell">
+          <div class="label">Easting / X (m)</div>
+          <div class="value" id="E">—</div>
+        </div>
+        <div class="cell">
+          <div class="label">Northing / Y (m)</div>
+          <div class="value" id="N">—</div>
+        </div>
+      </div>
+    </div>
+    <button class="copy" onclick="copyOut()">Copy values</button>
+  </div>
+  <div id="map"></div>
+</div>
+<div class="crosshair"></div>
+<footer>© 2025 Md Asif Islam — Map to Grid number zone India-IIB</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Projection constants (Zone IIb; EPSG:18113)
+const a = 6377276.345;
+const inv_f = 300.8017;
+const f = 1.0 / inv_f;
+const e2 = 2*f - f*f;
+const e = Math.sqrt(e2);
+
+const deg = Math.PI/180;
+const phi0 = 26 * deg;
+const lam0 = 90 * deg;
+const k0 = 0.99878641;
+const FE = 2743195.59223332;
+const FN = 914398.530744441;
+
+function m(phi){ return Math.cos(phi) / Math.sqrt(1 - e2*Math.sin(phi)*Math.sin(phi)); }
+function t(phi){
+  const s = Math.sin(phi);
+  return Math.tan(Math.PI/4 - phi/2) / Math.pow((1 - e*s)/(1 + e*s), e/2);
+}
+const n = Math.sin(phi0);
+const F = m(phi0) / (n * k0 * Math.pow(t(phi0), n));
+const rho0 = a * F * Math.pow(t(phi0), n);
+
+function lcc1sp(lonDeg, latDeg){
+  const lam = lonDeg * deg;
+  const phi = latDeg * deg;
+  const rho = a * F * Math.pow(t(phi), n);
+  const theta = n * (lam - lam0);
+  const E = FE + rho * Math.sin(theta);
+  const N = FN + rho0 - rho * Math.cos(theta);
+  return [E, N];
+}
+
+function setOutput(lon, lat, E, N){
+  document.getElementById('lon').textContent = lon.toFixed(5);
+  document.getElementById('lat').textContent = lat.toFixed(5);
+  document.getElementById('E').textContent   = Math.round(E).toLocaleString('en-IN');
+  document.getElementById('N').textContent   = Math.round(N).toLocaleString('en-IN');
+}
+
+function copyOut(){
+  const text = `Longitude: ${document.getElementById('lon').textContent}
+Latitude: ${document.getElementById('lat').textContent}
+Easting: ${document.getElementById('E').textContent}
+Northing: ${document.getElementById('N').textContent}`;
+  navigator.clipboard.writeText(text).then(()=>alert("Copied values to clipboard."));
+}
+
+// Map setup
+const map = L.map('map').setView([25, 90], 6);
+
+// ESRI World Topo map tiles (better zoom/detail)
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+  {
+    attribution: 'Tiles © Esri, Sources: Esri, HERE, Garmin, USGS, etc.',
+    maxZoom: 19
+  }
+).addTo(map);
+
+function updateCenterCoords(){
+  const center = map.getCenter();
+  const [E, N] = lcc1sp(center.lng, center.lat);
+  setOutput(center.lng, center.lat, E, N);
+}
+
+map.on('move', updateCenterCoords);
+map.on('zoom', updateCenterCoords);
+updateCenterCoords();
+</script>
+</body>
+</html>
